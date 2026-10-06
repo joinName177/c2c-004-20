@@ -34,7 +34,48 @@ describe('packItems', () => {
 
   it('returns deterministic coordinates and an unplaced reason', () => {
     const inputs = [item('a'), item('huge', { length: 30 })];
-    expect(packItems(suitcase(), inputs, 'comfort')).toEqual(packItems(suitcase(), inputs, 'comfort'));
-    expect(packItems(suitcase(), inputs, 'comfort').unplaced[0]?.reason).toContain('空间');
+    const plan = packItems(suitcase(), inputs, 'comfort');
+    expect(packItems(suitcase(), inputs, 'comfort')).toEqual(plan);
+    expect(plan.unplaced[0]?.reason).toContain('箱体尺寸');
+  });
+
+  it('keeps all currently applicable diagnostics with their deficits', () => {
+    const plan = packItems(
+      suitcase({ length: 12, width: 12, height: 12, maxWeight: 0 }),
+      [item('heavy-long', { length: 20, weight: 2 })],
+      'comfort',
+    );
+    const codes = plan.unplaced[0]?.diagnostics.map((diagnostic) => diagnostic.code);
+    expect(codes).toEqual(['dimensions', 'weight']);
+    const [dimensions, weight] = plan.unplaced[0]?.diagnostics ?? [];
+    expect(dimensions?.deficit).toBe(8);
+    expect(weight?.deficit).toBe(2);
+    expect(weight?.remaining).toBe(0);
+  });
+
+  it('describes a placement miss as current packing state instead of a general impossibility', () => {
+    const blocker = item('blocker', { length: 6, width: 6, height: 1, mustHave: true });
+    const candidate = item('candidate', { length: 6, width: 6, height: 1, weight: 0.1 });
+    const plan = packItems(suitcase({ length: 11, width: 11, height: 1, maxWeight: 10 }), [blocker, candidate], 'shopping');
+    const diagnostic = plan.unplaced[0]?.diagnostics[0];
+    expect(diagnostic?.code).toBe('placement');
+    expect(diagnostic?.message).toContain('当前摆放没有找到');
+    expect(diagnostic?.message).toContain('不能断言所有摆法都无解');
+  });
+
+  it('keeps volume reservation and placement diagnostics when both are true', () => {
+    const blocker = item('blocker', { length: 6, width: 6, height: 1, mustHave: true });
+    const candidate = item('candidate', { length: 6, width: 6, height: 1, weight: 0.1 });
+    const plan = packItems(suitcase({ length: 10, width: 10, height: 1, maxWeight: 10 }), [blocker, candidate], 'shopping');
+    expect(plan.unplaced[0]?.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['volume', 'placement']);
+  });
+
+  it('calculates weight and volume deficits using the selected plan quota', () => {
+    const heavy = item('heavy', { length: 1, width: 1, height: 1, weight: 9 });
+    const comfort = packItems(suitcase({ maxWeight: 10 }), [heavy], 'comfort');
+    const minimal = packItems(suitcase({ maxWeight: 10 }), [heavy], 'minimal');
+    expect(comfort.unplaced).toHaveLength(0);
+    expect(minimal.unplaced[0]?.diagnostics.find((diagnostic) => diagnostic.code === 'weight')?.deficit).toBeCloseTo(1);
+    expect(minimal.weightLimit).toBeCloseTo(8);
   });
 });

@@ -9,10 +9,16 @@ export function detectRisks(plan: PackingPlan, suitcase: Suitcase, items: Packin
   else if (plan.totalWeight / suitcase.maxWeight > 0.9) risks.push({ id: 'near-weight', severity: 'warning', title: '接近承重上限', message: '建议预留至少 10% 承重余量。' });
   if (plan.capacityRatio > 0.9) risks.push({ id: 'high-volume', severity: 'warning', title: '空间接近满载', message: '空间利用率超过 90%，返程新增物品可能无法装入。' });
 
-  for (const { item } of plan.unplaced) {
-    const oversized = rotationsOf(item).every((d) => d.length > suitcase.length || d.width > suitcase.width || d.height > suitcase.height);
-    if (oversized) risks.push({ id: `oversized-${item.id}`, severity: 'critical', title: `${item.name} 尺寸越界`, message: '任意旋转方向都无法放入当前行李箱。', itemId: item.id });
-    if (item.mustHave) risks.push({ id: `missing-${item.id}`, severity: 'critical', title: `必需品未装入：${item.name}`, message: '请调整清单或改用更大行李箱。', itemId: item.id });
+  for (const entry of plan.unplaced) {
+    const { item } = entry;
+    const dimensionDiagnostic = (entry.diagnostics ?? []).find((diagnostic) => diagnostic.code === 'dimensions');
+    const oversized = dimensionDiagnostic
+      ? dimensionDiagnostic.message
+      : rotationsOf(item).every((d) => d.length > suitcase.length || d.width > suitcase.width || d.height > suitcase.height)
+        ? '任意旋转方向都无法放入当前行李箱。'
+        : '';
+    if (oversized) risks.push({ id: `oversized-${item.id}`, severity: 'critical', title: `${item.name} 尺寸越界`, message: oversized, itemId: item.id, diagnostic: true });
+    if (item.mustHave) risks.push({ id: `missing-${item.id}`, severity: 'critical', title: `必需品未装入：${item.name}`, message: `“${item.name}”在当前方案未装入：${entry.reason}。请查看该物品的原因详情。`, itemId: item.id, diagnostic: true });
   }
 
   for (const placement of plan.placements) {

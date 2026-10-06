@@ -44,10 +44,23 @@ describe('Luggage planner App', () => {
     const { wrapper } = render();
     await wrapper.get('[data-plan="shopping"]').trigger('click');
     expect(wrapper.get('[data-plan="shopping"]').classes()).toContain('active');
-    const jacket = wrapper.findAll('[data-item-id="jacket"]');
+    const jacket = wrapper.findAll('.projection [data-item-id="jacket"]');
     expect(jacket.length).toBe(2);
     await jacket[0].trigger('click');
     expect(wrapper.findAll('[data-item-id="jacket"].selected')).toHaveLength(2);
+  });
+
+  it('opens the matching unplaced diagnostic from a must-have risk', async () => {
+    const { wrapper } = render();
+    await wrapper.get('[aria-label="行李箱长度"]').setValue('5');
+    await wrapper.get('[aria-label="行李箱宽度"]').setValue('5');
+    await wrapper.get('[aria-label="行李箱高度"]').setValue('5');
+    await wrapper.get('button.primary').trigger('click');
+    const riskLink = wrapper.get('[data-testid="risk-link-jacket"]');
+    await riskLink.trigger('click');
+    const details = wrapper.get('#unplaced-jacket').element as HTMLDetailsElement;
+    expect(details.open).toBe(true);
+    expect(wrapper.text()).toContain('单件在任意旋转下都无法放入箱体');
   });
 
   it('delegates printing through the print port', async () => {
