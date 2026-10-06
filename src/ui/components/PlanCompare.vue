@@ -9,7 +9,7 @@ const emit = defineEmits<{ select: [mode: PlanMode] }>();
     <button v-for="plan in plans" :key="plan.id" type="button" :data-plan="plan.id" :class="{ active: plan.id === selected }" @click="emit('select', plan.id)">
       <span>{{ plan.id === 'minimal' ? 'LIGHT' : plan.id === 'comfort' ? 'BALANCED' : 'RESERVE' }}</span>
       <strong>{{ plan.name }}</strong>
-      <small>{{ plan.placements.length }} 件 · {{ Math.round(plan.capacityRatio * 100) }}% 空间 · {{ plan.totalWeight.toFixed(1) }}/{{ suitcase.maxWeight }}kg</small>
+      <small>{{ plan.placements.length }} 件 · {{ Math.round(plan.capacityRatio * 100) }}% 空间 · {{ plan.totalWeight.toFixed(1) }}/{{ suitcase.maxWeight }}kg<span v-if="plan.unplaced.length" class="tab-unplaced"> · {{ plan.unplaced.length }} 件未装</span></small>
     </button>
   </div>
 </template>

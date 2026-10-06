@@ -22,6 +22,24 @@ function render() {
   return { wrapper, getPrintCount: () => printCount };
 }
 
+function renderWithOversized() {
+  const storage = new MemoryStorage();
+  const snapshot = {
+    suitcase: { length: 52, width: 35, height: 23, maxWeight: 10 },
+    selectedPlan: 'comfort' as const,
+    items: [
+      { id: 'tent', name: '超长帐篷', category: '其他', length: 90, width: 30, height: 20, weight: 2, priority: 3, mustHave: true },
+    ],
+  };
+  storage.setItem('c2c-004.planner', JSON.stringify(snapshot));
+  let printCount = 0;
+  const wrapper = mount(App, { props: {
+    repository: new LocalPlannerRepository(storage),
+    printPort: { print: () => { printCount += 1; } },
+  } });
+  return { wrapper, getPrintCount: () => printCount };
+}
+
 describe('Luggage planner App', () => {
   it('renders sample luggage and catches invalid dimensions', async () => {
     const { wrapper } = render();
@@ -54,5 +72,22 @@ describe('Luggage planner App', () => {
     const { wrapper, getPrintCount } = render();
     await wrapper.get('[data-testid="print-button"]').trigger('click');
     expect(getPrintCount()).toBe(1);
+  });
+
+  it('shows an expandable diagnosis for an item that cannot fit the box', async () => {
+    const { wrapper } = renderWithOversized();
+    const rows = wrapper.findAll('[data-testid="unplaced-row"]');
+    const row = rows.find((candidate) => candidate.text().includes('超长帐篷'));
+    expect(row).toBeTruthy();
+    expect(row!.text()).toContain('物品尺寸超出箱体限制');
+
+    await row!.find('summary').trigger('click');
+    expect(row!.text()).toContain('任意旋转入箱');
+    expect(row!.text()).toContain('任意旋转都无法放入箱体');
+    expect(row!.text()).toContain('连续空位');
+    expect(row!.find('button').exists()).toBe(false);
+
+    const missingRisk = wrapper.findAll('.risk-row').find((risk) => risk.text().includes('必需品未装入：超长帐篷'));
+    expect(missingRisk?.text()).toContain('物品尺寸超出箱体限制');
   });
 });

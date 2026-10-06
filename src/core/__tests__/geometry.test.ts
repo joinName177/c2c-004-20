@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { intersects, rotationsOf } from '../geometry';
-import type { PackingItem, Placement } from '../models';
+import { diagnoseFit, intersects, rotationsOf } from '../geometry';
+import type { Dimensions, PackingItem, Placement } from '../models';
 
 const item = (length: number, width: number, height: number) => ({ length, width, height }) as PackingItem;
+const box: Dimensions = { length: 10, width: 8, height: 6 };
 
 describe('rotationsOf', () => {
   it('returns six unique rotations for three unequal edges', () => {
@@ -25,5 +26,26 @@ describe('intersects', () => {
 
   it('detects boxes with overlapping volume', () => {
     expect(intersects(box(0, 0, 0), box(1, 1, 1))).toBe(true);
+  });
+});
+
+describe('diagnoseFit', () => {
+  it('finds a fitting rotation even when the stored orientation does not fit', () => {
+    const result = diagnoseFit(item(2, 4, 3), { length: 4, width: 3, height: 2 });
+    expect(result.fits).toBe(true);
+    expect(result.gaps).toEqual([]);
+    expect(result.dimensions).toEqual({ length: 4, width: 3, height: 2 });
+  });
+
+  it('returns the per-axis overflow of the least-bad rotation', () => {
+    const result = diagnoseFit(item(30, 2, 2), box);
+    expect(result.fits).toBe(false);
+    expect(result.gaps).toEqual([{ axis: '长', actual: 10, required: 30, over: 20 }]);
+  });
+
+  it('explains multiple axes when no rotation fits any way', () => {
+    const result = diagnoseFit(item(20, 20, 20), box);
+    expect(result.fits).toBe(false);
+    expect(result.gaps.map((gap) => gap.axis).sort()).toEqual(['宽', '长', '高']);
   });
 });

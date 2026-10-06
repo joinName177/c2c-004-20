@@ -24,11 +24,32 @@ export interface Placement {
   dimensions: Dimensions;
 }
 
+export type CheckStatus = 'pass' | 'fail' | 'skipped';
+
+export type DimensionGap = Readonly<{ axis: '长' | '宽' | '高'; actual: number; required: number; over: number }>;
+
+export interface UnplacedCheck {
+  key: 'valid' | 'dimensions' | 'weight' | 'volume' | 'placement';
+  label: string;
+  status: CheckStatus;
+  detail: string;
+  /** 该检查未通过时与限制条件的实际差额；重量为 kg，体积为 cm³，尺寸为 cm。 */
+  shortfall?: number;
+  gaps?: DimensionGap[];
+}
+
+export interface UnplacedDiagnosis {
+  item: PackingItem;
+  /** 未装入的首要原因，指向 checks 中第一条 fail。 */
+  reason: string;
+  checks: UnplacedCheck[];
+}
+
 export interface PackingPlan {
   id: PlanMode;
   name: string;
   placements: Placement[];
-  unplaced: Array<{ item: PackingItem; reason: string }>;
+  unplaced: UnplacedDiagnosis[];
   totalWeight: number;
   usedVolume: number;
   capacityRatio: number;

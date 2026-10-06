@@ -12,6 +12,7 @@ import ItemList from './components/ItemList.vue';
 import PackingProjection from './components/PackingProjection.vue';
 import PlanCompare from './components/PlanCompare.vue';
 import RiskPanel from './components/RiskPanel.vue';
+import UnplacedPanel from './components/UnplacedPanel.vue';
 import PrintSheet from './components/PrintSheet.vue';
 
 const props = defineProps<{ repository?: PlannerRepository; printPort?: PrintPort }>();
@@ -34,6 +35,7 @@ const errors = computed(() => validateSuitcase(planner.state.suitcase));
         <section class="right-column">
           <div class="canvas-panel"><div class="canvas-head"><div><span>03 / PACKING MAP</span><h2>{{ planner.currentPlan.value.name }}摆放方案</h2></div><div class="metrics"><span><b>{{ Math.round(planner.currentPlan.value.capacityRatio * 100) }}%</b>空间利用</span><span><b>{{ planner.currentPlan.value.totalWeight.toFixed(1) }}</b>kg 已装</span><span><b>{{ planner.currentPlan.value.unplaced.length }}</b>件未装</span></div></div><div class="projections"><PackingProjection view="top" :plan="planner.currentPlan.value" :suitcase="planner.state.suitcase" :items="planner.state.items" :selected-id="selectedItem" @select="selectedItem = $event" /><PackingProjection view="side" :plan="planner.currentPlan.value" :suitcase="planner.state.suitcase" :items="planner.state.items" :selected-id="selectedItem" @select="selectedItem = $event" /></div><p class="canvas-note">点击色块可在两个视图中同步定位物品。摆放坐标以箱体左下后角为原点。</p></div>
           <RiskPanel :risks="planner.risks.value" />
+          <UnplacedPanel :unplaced="planner.currentPlan.value.unplaced" />
         </section>
       </div>
       <p class="notice" aria-live="polite">{{ planner.notice.value }}</p>

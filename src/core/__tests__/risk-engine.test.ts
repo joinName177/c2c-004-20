@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { detectRisks } from '../risk-engine';
-import type { PackingItem, PackingPlan, Suitcase } from '../models';
+import { packItems } from '../packing-engine';
+import type { PackingItem, PackingPlan, Suitcase, UnplacedCheck } from '../models';
 
 const suitcase: Suitcase = { length: 10, width: 8, height: 6, maxWeight: 10 };
 const item = (id: string, overrides: Partial<PackingItem> = {}): PackingItem => ({ id, name: id, category: '其他', length: 2, width: 2, height: 2, weight: 1, priority: 2, mustHave: false, ...overrides });
@@ -14,7 +15,8 @@ describe('detectRisks', () => {
 
   it('reports an oversized unplaced item', () => {
     const huge = item('huge', { length: 11 });
-    const plan = { ...basePlan(), unplaced: [{ item: huge, reason: '没有可用的连续空间' }] };
+    const checks: UnplacedCheck[] = [{ key: 'dimensions', label: '任意旋转入箱', status: 'fail', detail: '越界' }];
+    const plan = { ...basePlan(), unplaced: [{ item: huge, reason: '物品尺寸超出箱体限制', checks }] };
     expect(detectRisks(plan, suitcase, [huge]).some((risk) => risk.id === 'oversized-huge')).toBe(true);
   });
 
@@ -34,9 +36,24 @@ describe('detectRisks', () => {
     expect(detectRisks(plan, suitcase, [heavy]).some((risk) => risk.id === 'high-heavy')).toBe(true);
   });
 
-  it('marks an omitted must-have item as critical', () => {
-    const required = item('passport', { mustHave: true });
-    const plan = { ...basePlan(), unplaced: [{ item: required, reason: '空间不足' }] };
-    expect(detectRisks(plan, suitcase, [required])).toContainEqual(expect.objectContaining({ id: 'missing-passport', severity: 'critical' }));
+  it('marks an omitted must-have item as critical and quotes its actual reason', () => {
+    const required = item('passport', { mustHave: true, length: 12 });
+    const plan = packItems(suitcase, [required], 'comfort');
+    const risks = detectRisks(plan, suitcase, [required]);
+    const missing = risks.find((risk) => risk.id === 'missing-passport');
+    expect(missing).toMatchObject({ severity: 'critical', itemId: 'passport' });
+    expect(missing?.message).toContain(plan.unplaced[0]!.reason);
+  });
+
+  it('describes a placement-only failure as arrangement, not an impossible item', () => {
+    const box: Suitcase = { length: 10, width: 8, height: 6, maxWeight: 50 };
+    const a = item('a', { name: '收纳箱A', length: 6, width: 5, height: 5, weight: 1 });
+    const b = item('b', { name: '收纳箱B', length: 6, width: 5, height: 5, weight: 1 });
+    const plan = packItems(box, [a, b], 'comfort');
+    const risks = detectRisks(plan, box, [a, b]);
+    expect(risks.some((risk) => risk.id === 'oversized-b')).toBe(false);
+    const check = plan.unplaced[0]!.checks.find((c) => c.key === 'placement');
+    expect(check?.status).toBe('fail');
+    expect(check?.detail).toContain('当前摆放');
   });
 });
